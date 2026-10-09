@@ -1,0 +1,16 @@
+# AutoBlog reverse proxy — auto-HTTPS via Caddy (PLAN.md §2).
+# {$APP_URL} is read from the environment / .env file.
+{$APP_URL:http://localhost} {
+	encode gzip
+
+	# security headers (PLAN.md §14.9)
+	header {
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Content-Type-Options "nosniff"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	reverse_proxy app:3000
+}

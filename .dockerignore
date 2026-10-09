@@ -1,0 +1,14 @@
+# build context hygiene — never bake secrets or local state into images
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+node_modules
+.next
+out
+coverage
+*.log
+Dockerfile
+docker-compose.yml
+Caddyfile
