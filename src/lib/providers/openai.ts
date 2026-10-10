@@ -1,7 +1,7 @@
 import { safeFetchBuffer } from '@/lib/ssrf';
 import { ProviderError } from './errors';
 import { assertImageBytes } from './image-utils';
-import { fetchBytes, postJson } from './http';
+import { postJson, getJson } from './http';
 import type { ImageProvider, ImageRequest, ImageResult, TextProvider, TextRequest, TextResult } from './types';
 
 type OpenAIResponse = { output_text?: string; output?: Array<{ content?: Array<{ type?: string; text?: string }> }>; usage?: Record<string, number> };
@@ -31,6 +31,16 @@ export class OpenAITextProvider implements TextProvider {
 
   async test(model: string): Promise<void> {
     await this.generate({ model, prompt: 'Reply with OK', maxTokens: 20 });
+  }
+
+  async listModels(): Promise<string[]> {
+    const response = await getJson<{ data?: Array<{ id?: string }> }>('https://api.openai.com/v1/models', {
+      headers: { authorization: `Bearer ${this.apiKey}` },
+      timeoutMs: 30_000,
+    });
+    return (response.data ?? [])
+      .map((model) => model.id)
+      .filter((id): id is string => Boolean(id));
   }
 }
 

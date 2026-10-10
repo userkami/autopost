@@ -1,6 +1,6 @@
 import { ProviderError } from './errors';
 import { assertImageBytes } from './image-utils';
-import { postJson } from './http';
+import { postJson, getJson } from './http';
 import type { ImageProvider, ImageRequest, ImageResult, TextProvider, TextRequest, TextResult } from './types';
 
 type GeminiResponse = {
@@ -33,6 +33,16 @@ export class GeminiTextProvider implements TextProvider {
 
   async test(model: string): Promise<void> {
     await this.generate({ model, prompt: 'Reply with OK', maxTokens: 20 });
+  }
+
+  async listModels(): Promise<string[]> {
+    const response = await getJson<{ models?: Array<{ name?: string }> }>(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(this.apiKey)}`,
+      { timeoutMs: 30_000 },
+    );
+    return (response.models ?? [])
+      .map((model) => model.name?.replace(/^models\//, ''))
+      .filter((name): name is string => Boolean(name));
   }
 }
 

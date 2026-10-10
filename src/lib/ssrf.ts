@@ -6,8 +6,9 @@ import { ProviderError, providerErrorFromStatus, toProviderError } from './provi
 const PRIVATE_V4_RANGES: Array<[number, number]> = [
   [ip4ToInt('0.0.0.0'), ip4ToInt('0.255.255.255')],
   [ip4ToInt('10.0.0.0'), ip4ToInt('10.255.255.255')],
+  [ip4ToInt('100.64.0.0'), ip4ToInt('100.127.255.255')], // CGNAT (RFC 6598)
   [ip4ToInt('127.0.0.0'), ip4ToInt('127.255.255.255')],
-  [ip4ToInt('169.254.0.0'), ip4ToInt('169.254.255.255')],
+  [ip4ToInt('169.254.0.0'), ip4ToInt('169.254.255.255')], // link-local incl. 169.254.169.254
   [ip4ToInt('172.16.0.0'), ip4ToInt('172.31.255.255')],
   [ip4ToInt('192.168.0.0'), ip4ToInt('192.168.255.255')],
   [ip4ToInt('224.0.0.0'), ip4ToInt('255.255.255.255')],
@@ -22,16 +23,26 @@ function isPrivateV4(ip: string): boolean {
   return PRIVATE_V4_RANGES.some(([start, end]) => value >= start && value <= end);
 }
 
+/**
+ * Reject IPv6 loopback, unspecified, unique-local (fc00::/7), link-local
+ * (fe80::/10), multicast (ff00::/8), and — critically — IPv4-mapped/embedded
+ * addresses (::ffff:a.b.c.d, ::a.b.c.d) whose IPv4 part is private, since those
+ * bypass a naive IPv4 check.
+ */
 function isBlockedV6(ip: string): boolean {
-  const normalized = ip.toLowerCase();
-  return (
-    normalized === '::1' ||
-    normalized === '::' ||
-    normalized.startsWith('fc') ||
-    normalized.startsWith('fd') ||
-    normalized.startsWith('fe80:') ||
-    normalized.startsWith('ff')
-  );
+  const normalized = ip.toLowerCase().replace(/^\[|\]$/g, '');
+  if (normalized === '::1' || normalized === '::') return true;
+  const firstGroup = normalized.split(':')[0] ?? '';
+  if (/^f[cd]/.test(firstGroup)) return true; // fc00::/7 unique-local
+  if (/^fe[89ab]/.test(firstGroup)) return true; // fe80::/10 link-local
+  if (/^ff/.test(firstGroup)) return true; // ff00::/8 multicast
+
+  // IPv4-mapped (::ffff:1.2.3.4) or IPv4-compatible (::1.2.3.4) forms.
+  const mapped = normalized.match(/(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (mapped?.[1]) {
+    return isIP(mapped[1]) === 4 ? isPrivateV4(mapped[1]) : true;
+  }
+  return false;
 }
 
 export function assertPublicIp(ip: string): void {
@@ -84,7 +95,6 @@ export async function safeFetchBuffer(input: string, opts: SafeFetchOptions = {}
       headers: opts.headers,
       body: opts.body,
       signal: opts.signal,
-      maxRedirections: 0,
     });
     if (response.statusCode < 200 || response.statusCode >= 300) throw providerErrorFromStatus(response.statusCode);
     const chunks: Buffer[] = [];
