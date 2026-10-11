@@ -43,3 +43,5 @@ export function createRateLimiter(opts: RateLimiterOptions): RateLimiter {
 export const testConnectionLimiter = createRateLimiter({ limit: 10, windowMs: 60_000 });
 export const loginLimiter = createRateLimiter({ limit: 10, windowMs: 60_000 });
 export const manualRunLimiter = createRateLimiter({ limit: 1, windowMs: 5 * 60_000 });
+/** Blogger connect/callback round trips (PLAN.md §14.7). */
+export const bloggerConnectLimiter = createRateLimiter({ limit: 10, windowMs: 60_000 });

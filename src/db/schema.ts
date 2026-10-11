@@ -273,6 +273,10 @@ export const schedules = pgTable(
       .default(sql`'{}'`),
     timezone: text('timezone').notNull().default('UTC'),
     postsPerRun: integer('posts_per_run').notNull().default(1),
+    // Set when a `needs_reconnect` failure disabled this schedule, so restore
+    // re-enables exactly those (PLAN.md §6.3: "re-enables schedules that were
+    // enabled before") without clobbering user-disabled schedules.
+    pausedForReconnect: boolean('paused_for_reconnect').notNull().default(false),
     nextRunAt: timestamp('next_run_at', { withTimezone: true }),
     lastRunAt: timestamp('last_run_at', { withTimezone: true }),
     ...timestamps,
@@ -304,6 +308,25 @@ export const verificationTokens = pgTable(
   (t) => [primaryKey({ columns: [t.identifier, t.token] })],
 );
 
+/**
+ * Custom Blogger OAuth flow state (PLAN.md §6.2, §14.5): a random `state` bound
+ * to the session user, stored server-side with a short TTL and single-use.
+ * The PKCE verifier is encrypted at rest.
+ */
+export const oauthStates = pgTable(
+  'oauth_states',
+  {
+    state: text('state').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    codeVerifierEnc: text('code_verifier_enc').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    ...timestamps,
+  },
+  (t) => [index('oauth_states_user_id_idx').on(t.userId)],
+);
+
 // ---------------------------------------------------------------------------
 // Pipeline (PLAN.md §5)
 // ---------------------------------------------------------------------------
@@ -318,10 +341,13 @@ export const topics = pgTable(
     notes: text('notes'),
     source: topicSourceEnum('source').notNull().default('manual'),
     status: topicStatusEnum('status').notNull().default('queued'),
+    // Queue order (PLAN.md §13 "reorder"; the pipeline takes the queue head).
+    // Lower runs first; manual pastes append at max+1 (DECISIONS #31).
+    position: integer('position').notNull().default(0),
     usedAt: timestamp('used_at', { withTimezone: true }),
     ...timestamps,
   },
-  (t) => [index('topics_blog_id_idx').on(t.blogId)],
+  (t) => [index('topics_blog_id_idx').on(t.blogId), index('topics_blog_position_idx').on(t.blogId, t.position)],
 );
 
 export const runs = pgTable(
