@@ -1,3 +1,7 @@
+# Local development only — for production/Coolify, use Coolify-managed resources
+# Coolify provides: PostgreSQL, reverse proxy (Traefik + auto-HTTPS), env management
+# This compose file is kept for `docker compose up` local testing
+
 services:
   db:
     image: postgres:16-alpine
@@ -9,7 +13,7 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
     ports:
-      # exposed for local development only; remove once running behind Caddy
+      # exposed for local development only
       - '5432:5432'
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U autoblog -d autoblog']
@@ -25,6 +29,8 @@ services:
       DATABASE_URL: postgres://autoblog:${POSTGRES_PASSWORD:-autoblog}@db:5432/autoblog
     expose:
       - '3000'
+    ports:
+      - '3000:3000'
     depends_on:
       db:
         condition: service_healthy
@@ -40,22 +46,5 @@ services:
       db:
         condition: service_healthy
 
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - '80:80'
-      - '443:443'
-    environment:
-      APP_URL: ${APP_URL:-http://localhost}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - app
-
 volumes:
   db_data:
-  caddy_data:
-  caddy_config:

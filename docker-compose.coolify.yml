@@ -1,0 +1,59 @@
+# Coolify Deployment Reference
+# 
+# Coolify does NOT use docker-compose files directly.
+# Instead, create resources via Coolify UI:
+# 
+# 1. PostgreSQL Resource
+#    - Coolify → Resources → Databases → PostgreSQL
+#    - Name: autoblog-db
+#    - Coolify auto-generates DATABASE_URL → copy to App env
+#
+# 2. App (Next.js)
+#    - Coolify → Applications → New → Dockerfile
+#    - Repository: this repo
+#    - Build: Dockerfile
+#    - Port: 3000
+#    - Health Check: GET /api/health (200/503)
+#    - Environment Variables (from .env.example + DATABASE_URL from step 1)
+#
+# 3. Worker (pg-boss)
+#    - Coolify → Applications → New → Dockerfile (same repo)
+#    - Command: npm run worker
+#    - Port: (none - worker doesn't expose HTTP)
+#    - Same env vars as App
+#
+# 4. Domain + HTTPS
+#    - Coolify → Domains → Add your-domain.com
+#    - Point A record to Coolify server IP
+#    - Coolify auto-provisions Let's Encrypt cert via Traefik
+#
+# This file is for reference only - Coolify manages services via its UI.
+
+services:
+  # NOT USED - Coolify manages these separately
+  # db:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_USER: autoblog
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  #     POSTGRES_DB: autoblog
+  #   volumes:
+  #     - db_data:/var/lib/postgresql/data
+  #
+  # app:
+  #   build: .
+  #   environment:
+  #     DATABASE_URL: ${DATABASE_URL}  # from Coolify PostgreSQL resource
+  #   expose:
+  #     - '3000'
+  #
+  # worker:
+  #   build: .
+  #   command: npm run worker
+  #   environment:
+  #     DATABASE_URL: ${DATABASE_URL}
+  #
+  # NO caddy service - Coolify's Traefik handles reverse proxy + HTTPS
+  #
+  # volumes:
+  #   db_data:
