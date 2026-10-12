@@ -192,3 +192,18 @@ export async function deletePost(
     accessToken,
   );
 }
+
+/**
+ * BloggerClient - wrapper around Blogger API functions with a stored access token.
+ * Used by the pipeline deliver step.
+ */
+export class BloggerClient {
+  constructor(
+    private accessToken: string,
+    private blogId: string
+  ) {}
+
+  async createPost(input: BloggerPostInput, opts: { isDraft: boolean }): Promise<BloggerPost> {
+    return createPost(this.accessToken, this.blogId, input, opts);
+  }
+}

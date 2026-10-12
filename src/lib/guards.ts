@@ -52,3 +52,9 @@ export async function requireUser(): Promise<CurrentUser> {
   if (!user) redirect('/login');
   return user;
 }
+
+export async function requireAdmin(): Promise<CurrentUser> {
+  const user = await requireUser();
+  if (!user.isAdmin) redirect('/dashboard');
+  return user;
+}

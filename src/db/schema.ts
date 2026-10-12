@@ -277,6 +277,11 @@ export const schedules = pgTable(
     // re-enables exactly those (PLAN.md §6.3: "re-enables schedules that were
     // enabled before") without clobbering user-disabled schedules.
     pausedForReconnect: boolean('paused_for_reconnect').notNull().default(false),
+    // Consecutive failed runs (PLAN.md §12: three in a row → auto-pause).
+    consecutiveFailures: integer('consecutive_failures').notNull().default(0),
+    // Free-form log of scheduler actions (missed slots, auto-pauses) for the
+    // admin health view and debugging.
+    missedNotes: jsonb('missed_notes'),
     nextRunAt: timestamp('next_run_at', { withTimezone: true }),
     lastRunAt: timestamp('last_run_at', { withTimezone: true }),
     ...timestamps,
@@ -484,6 +489,49 @@ export const notifications = pgTable(
   ],
 );
 
+/**
+ * Worker heartbeat (PLAN.md §15 Health view). The worker writes one row per
+ * tick (upsert on `id`) so the admin panel can show "worker down" when the
+ * row is stale beyond a configurable threshold.
+ */
+export const workerHeartbeats = pgTable(
+  'worker_heartbeats',
+  {
+    id: text('id').primaryKey().notNull(),
+    lastTickAt: timestamp('last_tick_at', { withTimezone: true }).notNull().default(now()),
+    lastTickOk: boolean('last_tick_ok').notNull().default(true),
+    lastTickError: text('last_tick_error'),
+    pendingJobs: integer('pending_jobs').notNull().default(0),
+    ...timestamps,
+  },
+  (t) => [index('worker_heartbeats_last_tick_at_idx').on(t.lastTickAt)],
+);
+
+/**
+ * Email delivery log (PLAN.md §11 review delivery + §13). Every outbound
+ * email is recorded before/at send so failures are visible even when SMTP
+ * is misconfigured. `sentAt` is null on failure.
+ */
+export const notificationEmailLog = pgTable(
+  'notification_email_log',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    notificationType: text('notification_type').notNull(),
+    recipient: text('recipient').notNull(),
+    subject: text('subject').notNull(),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    error: text('error'),
+    ...timestamps,
+  },
+  (t) => [
+    index('notification_email_log_user_id_idx').on(t.userId),
+    index('notification_email_log_sent_at_idx').on(t.sentAt),
+  ],
+);
+
 export const auditLog = pgTable(
   'audit_log',
   {
@@ -510,6 +558,7 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Blog = typeof blogs.$inferSelect;
 export type AuditLogRow = typeof auditLog.$inferSelect;
+export type WorkerHeartbeat = typeof workerHeartbeats.$inferSelect;
 
 export type Db = PgDatabase<PgQueryResultHKT, Record<string, unknown>>;
 /**

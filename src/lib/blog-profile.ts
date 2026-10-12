@@ -15,6 +15,8 @@ export const blogProfileSchema = z.object({
   default_labels: z.array(z.string()).default([]),
   ai_disclosure: z.boolean().default(false),
   research_mode: z.enum(['manual', 'brainstorm', 'grounded']).default('brainstorm'),
+  /** When true, an image-step failure continues without an image (PLAN §11.3). */
+  allow_no_image: z.boolean().default(true),
   prompt_overrides: z
     .object({
       research: z.string().optional(),

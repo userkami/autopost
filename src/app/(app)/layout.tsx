@@ -1,8 +1,11 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { settings } from '@/lib/settings';
 import { requireUser } from '@/lib/guards';
 import { signOutAction } from './actions';
+import { notifications } from '@/db/schema';
+import { db } from '@/db';
 
 /**
  * Authenticated shell (PLAN.md §17 Phase 1 / §13).
@@ -13,6 +16,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const maintenance = await settings.get('maintenance_mode');
   if (maintenance && !user.isAdmin) redirect('/maintenance');
+
+  const [unreadCount] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(notifications)
+    .where(and(eq(notifications.userId, user.id), isNull(notifications.readAt)));
 
   return (
     <div className="min-h-screen">
@@ -26,6 +34,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <Link href="/dashboard" className="hover:underline">
                 Dashboard
               </Link>
+              <Link href="/notifications" className="hover:underline flex items-center gap-1">
+                Notifications
+                {unreadCount?.count && unreadCount.count > 0 && (
+                  <span className="rounded-full bg-blue-100 text-blue-800 text-xs px-1.5 py-0.5">{unreadCount.count}</span>
+                )}
+              </Link>
+              {user.isAdmin && (
+                <Link href="/admin" className="hover:underline text-red-600 font-medium">
+                  Admin
+                </Link>
+              )}
               <Link href="/account" className="hover:underline">
                 Account
               </Link>

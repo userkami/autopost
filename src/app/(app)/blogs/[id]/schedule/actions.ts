@@ -11,6 +11,7 @@ import { recordAuditSafe } from '@/lib/audit';
 import { getBlogForUser, loadBlogSettings, blogReadiness } from '@/lib/blog-settings';
 import { getSchedule, refreshNextRunAt, upsertSchedule } from '@/lib/schedule';
 import { manualRunLimiter } from '@/lib/ratelimit';
+import { enqueueRunExecute } from '@/lib/jobs';
 
 /**
  * Schedule server actions (PLAN.md §7, §12, §13 /blogs/[id]/schedule).
@@ -217,6 +218,11 @@ export async function runNowAction(blogId: string, _formData: FormData): Promise
     .insert(runs)
     .values({ blogId, trigger: 'manual', status: 'queued' })
     .returning({ id: runs.id });
+
+  // Enqueue the run.execute job for the worker to process
+  if (run) {
+    await enqueueRunExecute(run.id);
+  }
 
   await recordAuditSafe({
     actorId: user.id,
