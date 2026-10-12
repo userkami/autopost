@@ -4,13 +4,13 @@
 
 ## Status
 
-- **Current phase:** Phase 7 — Admin panel (**code complete**: users table/detail/actions with blog_limit override, global settings + invites, jobs/runs monitor with retry/cancel, health view with worker heartbeat + reconnect alerts + failure rates, provider catalog CRUD, audit log; admin link in header; `npm run check` ✅ 173 tests / 10 skipped, `next build` ✅ 22 routes)
+- **Current phase:** Phase 8 — Hardening, legal, docs, release (**code complete**: CSP headers, rate limit middleware, account deletion + token revocation, privacy/terms/landing pages, Playwright smoke test, backup script + restore docs, README, VERIFICATION_CHECKLIST, ADDING_A_PROVIDER docs; `npm run check` ✅ 173 tests / 10 skipped, `next build` ✅ 23 routes)
 - **Phase 0 remaining:** `docker compose up` acceptance on any Docker host (DECISIONS #8).
 - **Phase 1 remaining:** DB-dependent acceptance where Postgres exists — `npm run db:migrate` + `npm run db:seed`, dev-login round trip, IDOR harness (`TEST_DATABASE_URL`), then real Google login once `HUMAN_TASKS.md` #2 credentials exist — **BLOCKED** locally: no Docker/Postgres on this machine.
 - **Phase 2 remaining:** DB-dependent acceptance (add/test connections + image hosts against the real DB) — **BLOCKED** locally: no Postgres. Real-provider Test buttons unverified without keys (mock + HTTP-mock tests cover logic).
 - **Phase 3 remaining:** Real-credential acceptance (connect a blog, create+delete a test draft, limit of 2 under concurrency — `HUMAN_TASKS.md` #2) and the DB-backed integration suite (`TEST_DATABASE_URL`: state single-use, transactional limit/race, invalid_grant flip/restore) — **BLOCKED** locally: no Postgres/Google credentials on this machine.
 - **Phase 4 remaining:** DB-backed acceptance (needs Postgres).
-- **Next:** Phase 8 — Hardening, legal, docs, release (CSP, rate limits, deletion, legal pages, Playwright smoke, backups, README, checklists).
+- **Next:** Deploy to production VPS, Google OAuth verification, live e2e smoke test.
 
 ## Phase checklist (PLAN.md §17)
 
@@ -22,7 +22,7 @@
 - [ ] **Phase 5 — Pipeline, Run now, review queue** — ✅ prompts (research/writer/image/repair), 6 steps with resume (research/write/image/upload/assemble/deliver), quality gates (word count, h2 count, placeholders, blocklist, dedupe), trigram-Jaccard dedupe, worker job `run.execute` with pg-boss, "Run now" with 5-min rate limit + active-run guard, review UI at `/blogs/[id]/posts` (status filters, preview, approve & publish / save as draft / regenerate text / regenerate image / reject), `review.expire` worker job with auto-publish on expiry.
 - [ ] **Phase 6 — Scheduler, notifications, email** — ✅ `computeNext` 25 tests (DST, intervals, weekdays, edge cases); tick with SKIP LOCKED + idempotent insert; missed-slot policy (60-min threshold); per-user concurrency (pg-boss singletonKey); 3 consecutive failures auto-pause + notify; schedule UI with next-5 preview; notifications in-app + SMTP email (nodemailer) with templates (review pending, post published, run failed, reconnect needed, schedule auto-paused); worker heartbeat (30s); graceful shutdown; `/notifications` page with list + mark read.
 - [ ] **Phase 7 — Admin panel** — ✅ users table + detail (blog_limit override, suspend/unsuspend, force-disconnect blog, delete), global settings (signups_mode, maintenance_mode, global_pause, defaults, blocklist, announcement, custom_endpoints_allowed, invites), jobs/runs monitor (filter, retry, cancel), health (worker heartbeat, reconnect alerts, failure rates), provider catalog CRUD (create/update/deprecate/delete), audit log (search/filter/pagination), admin guard + header link.
-- [ ] **Phase 8 — Hardening, legal, docs, release** — CSP, rate limits, deletion, legal pages, Playwright smoke, backups, README, checklists.
+- [ ] **Phase 8 — Hardening, legal, docs, release** — ✅ CSP/security headers (next.config.ts); rate limit middleware (auth, blogger connect, connection tests); account deletion with Google token revocation + data export API; privacy/terms/landing pages; Playwright smoke test (login, configure, run, review); backup script (pg_dump cron + restore doc); README.md (local dev, env, deploy, upgrade); `docs/VERIFICATION_CHECKLIST.md` (Google OAuth verification); `docs/ADDING_A_PROVIDER.md` (provider integration guide); dependency audit.
 
 ## Task log
 
@@ -75,6 +75,15 @@
 | 2026-10-12 | Phase 7 audit: `/admin/audit` searchable log (filter by action/actor, pagination) | done                                                          |
 | 2026-10-12 | Phase 7 UI: Admin link in header for admin users | done                                                          |
 | 2026-10-12 | Validated: `npm run check` green (173 passed, 10 skipped); `next build` 22 routes | done                                                          |
+| 2026-10-12 | Phase 8 CSP: next.config.ts with CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy | done                                                          |
+| 2026-10-12 | Phase 8 rate limits: middleware.ts for /api/auth, /api/blogger, /api/connections/test | done                                                          |
+| 2026-10-12 | Phase 8 deletion: account deletion action (revokes tokens, cascades delete) + /api/account/export route | done                                                          |
+| 2026-10-12 | Phase 8 legal: privacy, terms, landing pages with full policies | done                                                          |
+| 2026-10-12 | Phase 8 Playwright: playwright.config.ts + smoke.spec.ts (login, configure, run, review) | done                                                          |
+| 2026-10-12 | Phase 8 backup: scripts/backup.sh (pg_dump cron) + docs/BACKUP_RESTORE.md | done                                                          |
+| 2026-10-12 | Phase 8 docs: README.md, docs/VERIFICATION_CHECKLIST.md, docs/ADDING_A_PROVIDER.md | done                                                          |
+| 2026-10-12 | Phase 8 audit: npm audit (13 vulns, mostly transitive; nodemailer via auth chain) | done                                                          |
+| 2026-10-12 | Validated: `npm run check` green (173 passed, 10 skipped); `next build` 23 routes | done                                                          |
 | 2026-10-10 | Phase 3 real-credential acceptance (connect a blog, test draft create/delete, limit-of-2 under concurrency, invalid_grant against Google)                                                                                                                                                               | BLOCKED — `HUMAN_TASKS.md` #2 credentials + no local Postgres |
 
 ## Blocked / waiting on human
